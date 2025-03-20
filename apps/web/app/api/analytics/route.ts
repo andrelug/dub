@@ -22,6 +22,11 @@ export const GET = withWorkspace(
     let { eventType: oldEvent, endpoint: oldType } =
       analyticsPathParamsSchema.parse(params);
 
+    // for backwards compatibility (we used to support /analytics/[endpoint] as well)
+    if (!oldType && oldEvent && VALID_ANALYTICS_ENDPOINTS.includes(oldEvent)) {
+      oldType = oldEvent as typeof VALID_ANALYTICS_ENDPOINTS[number];
+      oldEvent = undefined;
+    }
 
     const parsedParams = analyticsQuerySchema.parse(searchParams);
 
