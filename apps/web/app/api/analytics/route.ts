@@ -16,8 +16,17 @@ import { NextResponse } from "next/server";
 
 // GET /api/analytics – get analytics
 export const GET = withWorkspace(
-  async ({ searchParams, workspace, session }) => {
+  async ({ params, searchParams, workspace, session }) => {
     throwIfClicksUsageExceeded(workspace);
+
+    let { eventType: oldEvent, endpoint: oldType } =
+      analyticsPathParamsSchema.parse(params);
+
+    // for backwards compatibility (we used to support /analytics/[endpoint] as well)
+    if (!oldType && oldEvent && VALID_ANALYTICS_ENDPOINTS.includes(oldEvent)) {
+      oldType = oldEvent;
+      oldEvent = undefined;
+    }
 
     const parsedParams = analyticsQuerySchema.parse(searchParams);
 
@@ -36,6 +45,8 @@ export const GET = withWorkspace(
 
     let link: Link | null = null;
 
+    event = oldEvent || event;
+    groupBy = oldType || groupBy;
 
     if (domain) {
       await getDomainOrThrow({ workspace, domain });
@@ -84,6 +95,8 @@ export const GET = withWorkspace(
     // (/api/analytics/count)
     // (/api/analytics/clicks/clicks)
     // (/api/analytics/clicks/count)
+    const isDeprecatedClicksEndpoint =
+      oldEvent === "clicks" || oldType === "count";
 
     const response = await getAnalytics({
       ...parsedParams,
@@ -91,6 +104,7 @@ export const GET = withWorkspace(
       groupBy,
       ...(link && { linkId: link.id }),
       workspaceId: workspace.id,
+      isDeprecatedClicksEndpoint,
       dataAvailableFrom: workspace.createdAt,
       folderIds,
       isMegaFolder: selectedFolder?.type === "mega",
